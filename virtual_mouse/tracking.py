@@ -3,15 +3,23 @@
 Heavy imports (`cv2`, `mediapipe`) are confined to this module so the rest of
 the project can be imported, unit-tested and simulated on a machine with no
 camera and no GUI stack.
+
+Camera switching is lazy: the first time you press `c` the tracker releases the
+current device, probes the available indices once, caches them, and reopens on
+the next one. Probing up front would add seconds to every start-up.
 """
 
 from __future__ import annotations
 
 import sys
+import time
 from typing import Any
 
+from .cameras import next_camera
 from .config import Config
 from .gestures import HandFrame
+
+MAX_PROBED_INDEX = 4
 
 
 class TrackerUnavailable(RuntimeError):
@@ -46,25 +54,126 @@ class HandTracker:
             min_tracking_confidence=config.min_tracking_confidence,
         )
 
-        cv2 = self.cv2
-        backend = cv2.CAP_DSHOW if sys.platform.startswith("win") else 0
-        self.capture = cv2.VideoCapture(config.camera_index, backend)
-        if not self.capture.isOpened():
-            raise TrackerUnavailable(
-                f"Camera {config.camera_index} could not be opened. "
-                "Close other apps using the webcam (Zoom/Teams/Camera) and try again, "
-                "or pass --camera 1."
-            )
+        self._backend = self.cv2.CAP_DSHOW if sys.platform.startswith("win") else 0
+        self.capture: Any | None = None
+        self.index = config.camera_index
+        self.available: list[int] = []
+        self.notice: tuple[str, float] | None = None
 
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, config.frame_width)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, config.frame_height)
-        self.capture.set(cv2.CAP_PROP_FPS, config.target_fps)
-        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if not self.open_camera(self.index):
+            # The requested index may not exist; look for any working camera
+            # before giving up, so a laptop with an external camera still runs.
+            found = self.detect_cameras()
+            if not found or not self.open_camera(found[0]):
+                raise TrackerUnavailable(
+                    f"No camera could be opened (tried index {self.index}"
+                    + (f" and detected {found}" if found else "")
+                    + "). Close other apps using the webcam and try again."
+                )
+
+    # ------------------------------------------------------------------
+    def open_camera(self, index: int) -> bool:
+        """Open `index`, replacing any current device. Never raises."""
+        self.release_camera()
+        try:
+            capture = self.cv2.VideoCapture(index, self._backend)
+        except Exception:
+            return False
+
+        if not capture.isOpened():
+            capture.release()
+            return False
+
+        capture.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.config.frame_width)
+        capture.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.config.frame_height)
+        capture.set(self.cv2.CAP_PROP_FPS, self.config.target_fps)
+        capture.set(self.cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        # A device that opens but delivers no frame is not a usable camera.
+        ok, frame = capture.read()
+        if not ok or frame is None:
+            capture.release()
+            return False
+
+        self.capture = capture
+        self.index = index
+        self.config = self.config.with_overrides(camera_index=index)
+        return True
+
+    def release_camera(self) -> None:
+        if self.capture is not None:
+            try:
+                self.capture.release()
+            finally:
+                self.capture = None
+
+    # ------------------------------------------------------------------
+    def detect_cameras(self, max_index: int = MAX_PROBED_INDEX) -> list[int]:
+        """Probe indices once and cache the ones that actually deliver frames."""
+        found: list[int] = []
+        for index in range(max_index + 1):
+            try:
+                capture = self.cv2.VideoCapture(index, self._backend)
+                if capture.isOpened():
+                    ok, frame = capture.read()
+                    if ok and frame is not None:
+                        found.append(index)
+                capture.release()
+            except Exception:
+                continue
+        self.available = found
+        return found
+
+    def cycle_camera(self) -> int | None:
+        """Switch to the next working camera. Returns the new index or None."""
+        if not self.available:
+            # Probing needs exclusive access, so let go of the current device.
+            current = self.index
+            self.release_camera()
+            self.detect_cameras()
+            if current not in self.available:
+                # fall back to the camera we had, if it still works
+                if self.open_camera(current):
+                    self.notice = (f"only camera {current} found", time.perf_counter())
+                    return None
+
+        target = next_camera(self.index, self.available)
+        if target is None:
+            self.notice = ("no cameras detected", time.perf_counter())
+            if self.capture is None:
+                self.open_camera(self.index)
+            return None
+        if target == self.index:
+            self.notice = (f"only camera {self.index} available", time.perf_counter())
+            return None
+
+        if self.open_camera(target):
+            self.notice = (f"camera {target}", time.perf_counter())
+            return target
+
+        # The next index is busy or gone: drop it from the cache and retry once.
+        self.available = [i for i in self.available if i != target]
+        if not self.open_camera(self.index):
+            self.open_camera(self.available[0] if self.available else 0)
+        self.notice = (f"camera {target} unavailable", time.perf_counter())
+        return None
+
+    def active_notice(self, ttl: float = 1.6) -> str | None:
+        if not self.notice:
+            return None
+        text, at = self.notice
+        if time.perf_counter() - at > ttl:
+            self.notice = None
+            return None
+        return text
 
     # ------------------------------------------------------------------
     def read(self) -> tuple[Any, HandFrame | None, Any | None]:
         """Return (frame, hand, raw landmarks) for one frame."""
         cv2 = self.cv2
+        if self.capture is None:
+            return None, None, None
+
         ok, frame = self.capture.read()
         if not ok or frame is None:
             return None, None, None
@@ -109,10 +218,8 @@ class HandTracker:
         )
 
     def close(self) -> None:
+        self.release_camera()
         try:
-            self.capture.release()
-        finally:
-            try:
-                self.hands.close()
-            except Exception:  # pragma: no cover - best effort
-                pass
+            self.hands.close()
+        except Exception:  # pragma: no cover - best effort
+            pass
