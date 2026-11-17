@@ -138,11 +138,27 @@ class Hysteresis:
 
 
 class Deadband:
-    """Ignore movements smaller than `threshold` pixels, pass the rest intact."""
+    """Ignore movements smaller than `threshold` pixels, pass the rest intact.
+
+    Compared against the last *emitted* point, so slow motion accumulates
+    instead of being thrown away. The threshold is adjustable at runtime
+    (the `[` and `]` keys) and clamped to a sane range.
+    """
+
+    MIN = 0.0
+    MAX = 5.0
 
     def __init__(self, threshold: float = 0.4) -> None:
-        self.threshold = threshold
+        self.threshold = self.clamp(threshold)
         self.last: tuple[float, float] | None = None
+
+    @classmethod
+    def clamp(cls, value: float) -> float:
+        return max(cls.MIN, min(cls.MAX, float(value)))
+
+    def set_threshold(self, value: float) -> float:
+        self.threshold = self.clamp(value)
+        return self.threshold
 
     def reset(self, value: tuple[float, float] | None = None) -> None:
         self.last = value
