@@ -2,11 +2,8 @@
 
 This exists because a webcam is not required to prove the engine works. It runs
 the *real* pipeline (gestures -> mapping -> filter -> controller) over a scripted
-hand with sensor noise, then reports:
-
-  * how much jitter the filter removed,
-  * how many clean clicks/drags/scroll notches came out of it,
-  * the largest single-frame pointer jump.
+hand with sensor noise, then reports clicks, coasting-free gesture counts and
+how much jitter the filter removed.
 
     python scripts/simulate.py
     python scripts/simulate.py --json docs/simulation.json --svg docs/simulation-path.svg
@@ -48,9 +45,9 @@ def hand(pinch: float = 1.0, fist: bool = False, x: float = 0.5, y: float = 0.5,
             points[pip_idx] = (x + 0.02, y - 0.02)
             points[tip_idx] = (x + 0.02, y + offset)
     else:
-        for tip_idx, pip_idx, offset in ((16, 14, 0.12), (20, 18, 0.13)):
-            points[pip_idx] = (x + 0.02, y + 0.03)
-            points[tip_idx] = (points[pip_idx][0], points[pip_idx][1] - offset)
+        for tip_idx, pip_idx in ((16, 14), (20, 18)):
+            points[pip_idx] = (x + 0.02, y - 0.05)
+            points[tip_idx] = (x + 0.02, y - 0.32)
     from virtual_mouse.gestures import HandFrame  # local import keeps the module import-light
 
     return HandFrame(points=points)
@@ -91,12 +88,12 @@ def build_session(seed: int = 11):
     frames += [(hand(pinch=1.0, middle=0.18, x=pos[0], y=pos[1]), "right")] * 6
     frames += [(hand(pinch=1.0, x=pos[0], y=pos[1]), "move")] * 12
 
-    # 3. a drag across the middle of the screen
+    # 3. a long pinch that travels: it must click once and never drag
     glide((0.32, 0.55), 12)
-    frames += [(hand(pinch=0.18, x=0.32, y=0.55), "drag")] * 6
+    frames += [(hand(pinch=0.18, x=0.32, y=0.55), "longpinch")] * 6
     for i in range(36):
         pos[0], pos[1] = 0.32 + i * 0.01, 0.55
-        frames.append((hand(pinch=0.18, x=pos[0], y=pos[1]), "drag"))
+        frames.append((hand(pinch=0.18, x=pos[0], y=pos[1]), "longpinch"))
     frames += [(hand(pinch=1.0, x=pos[0], y=pos[1]), "move")] * 8
 
     # 4. fist scroll: the hand travels up, then opens
@@ -142,23 +139,9 @@ def simulate(frames, config: Config):
 
     downs = backend.of_type("down")
     ups = backend.of_type("up")
+    left_clicks = [e for e in backend.of_type("click") if e[1] == "left"]
     rights = [e for e in backend.of_type("click") if e[1] == "right"]
     scroll_values = [e[1] for e in backend.of_type("scroll")]
-
-    # A drag is a press that accumulated real movement before it was released.
-    drags = 0
-    moves_since_press: list[tuple[int, int]] = []
-    for event in backend.events:
-        if event[0] == "move":
-            moves_since_press.append((event[1], event[2]))
-        elif event[0] == "down" and event[1] == "left":
-            moves_since_press.clear()
-        elif event[0] == "up" and event[1] == "left":
-            if len(moves_since_press) >= 2:
-                span = math.dist(moves_since_press[0], moves_since_press[-1])
-                if span > 20:
-                    drags += 1
-            moves_since_press.clear()
 
     raw_jit = path_jitter(raw_path)
     cur_jit = path_jitter(cursor_path)
@@ -167,9 +150,8 @@ def simulate(frames, config: Config):
         "frames": len(frames),
         "duration_s": round(len(frames) * FRAME_MS / 1000.0, 2),
         "moves": len(backend.of_type("move")),
-        "left_downs": len(downs),
-        "left_ups": len(ups),
-        "drags": drags,
+        "left_clicks": len(left_clicks),
+        "held_buttons": len(downs) + len(ups),
         "right_clicks": len(rights),
         "scroll_notches": sum(abs(v) for v in scroll_values),
         "scroll_events": len(scroll_values),
@@ -201,12 +183,12 @@ def to_svg(result: dict, width: int = 960, height: int = 540) -> str:
   <polyline points="{raw}" fill="none" stroke="#c9c3b8" stroke-width="1.2"/>
   <polyline points="{cur}" fill="none" stroke="#a8461c" stroke-width="1.6"/>
   <g font-family="ui-monospace, Consolas, monospace" font-size="11" fill="#6b6660">
-    <text x="20" y="28">REAL MOUSE · simulated session</text>
-    <text x="20" y="{height - 34}">raw landmark path — jitter {result['raw_jitter_px']} px</text>
+    <text x="20" y="28">REAL MOUSE - simulated session</text>
+    <text x="20" y="{height - 34}">raw landmark path - jitter {result['raw_jitter_px']} px</text>
     <rect x="20" y="{height - 26}" width="18" height="2" fill="#c9c3b8"/>
-    <text x="20" y="{height - 12}">filtered cursor — jitter {result['cursor_jitter_px']} px ({result['jitter_reduction_pct']}% less)</text>
+    <text x="20" y="{height - 12}">filtered cursor - jitter {result['cursor_jitter_px']} px ({result['jitter_reduction_pct']}% less)</text>
     <rect x="290" y="{height - 20}" width="18" height="2" fill="#a8461c"/>
-    <text x="{width - 240}" y="28">{result['left_downs']} clicks · {result['drags']} drags · {result['scroll_notches']} notches</text>
+    <text x="{width - 260}" y="28">{result['left_clicks']} clicks | {result['right_clicks']} right | {result['scroll_notches']} notches</text>
   </g>
 </svg>
 """
@@ -241,7 +223,13 @@ def main() -> int:
         print(f"wrote {path}")
 
     # A session that produced no clicks is a broken session, not a quiet one.
-    ok = result["left_downs"] >= 3 and result["scroll_notches"] > 0 and result["cursor_jitter_px"] < result["raw_jitter_px"]
+    # held_buttons must stay 0: a click is atomic and can never become a drag.
+    ok = (
+        result["left_clicks"] >= 3
+        and result["scroll_notches"] > 0
+        and result["held_buttons"] == 0
+        and result["cursor_jitter_px"] < result["raw_jitter_px"]
+    )
     return 0 if ok else 1
 
 

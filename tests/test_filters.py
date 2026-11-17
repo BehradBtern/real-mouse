@@ -49,7 +49,7 @@ class TestHysteresis(unittest.TestCase):
         values = [9.0, 9.5, 10.5, 11.0, 10.2, 12.0, 13.5, 13.9, 10.0, 11.0]
         states = [trigger.update(v) for v in values]
         # one press, no release until 14.0 is crossed
-        self.assertEqual(states, [True, True, True, True, True, True, True, True, True, True])
+        self.assertEqual(states, [True] * 10)
 
     def test_release_requires_the_upper_threshold(self) -> None:
         trigger = Hysteresis(on=10.0, off=14.0)
@@ -68,6 +68,18 @@ class TestDeadband(unittest.TestCase):
         band = Deadband(threshold=1.0)
         band.apply(100.0, 100.0)
         self.assertEqual(band.apply(103.0, 100.0), (103.0, 100.0))
+
+    def test_threshold_is_clamped(self) -> None:
+        band = Deadband(0.4)
+        self.assertEqual(band.set_threshold(9.0), Deadband.MAX)
+        self.assertEqual(band.set_threshold(-3.0), Deadband.MIN)
+
+    def test_raising_the_threshold_suppresses_more(self) -> None:
+        band = Deadband(threshold=0.0)
+        band.apply(100.0, 100.0)
+        band.set_threshold(2.0)
+        self.assertEqual(band.apply(101.0, 100.0), (100.0, 100.0))
+        self.assertEqual(band.apply(102.5, 100.0), (102.5, 100.0))
 
 
 class TestSubPixelAccumulator(unittest.TestCase):

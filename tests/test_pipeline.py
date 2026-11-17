@@ -33,7 +33,7 @@ class TestPipelineSmoothing(unittest.TestCase):
         self.assertLess(cursor_jitter, raw_jitter * 0.5)
 
     def test_deadband_freezes_a_still_hand(self) -> None:
-        config = Config(dry_run=True, deadband_px=0.8)
+        config = Config(dry_run=True, deadband_px=1.5)
         backend = RecordingBackend()
         pipeline = Pipeline(config, backend)
         now = 0.0
@@ -62,8 +62,10 @@ class TestPipelineClicks(unittest.TestCase):
                 now += FRAME_MS
                 pipeline.step(make_hand(pinch=1.0), now)
 
-        self.assertEqual(len(backend.of_type("down")), 3)
-        self.assertEqual(len(backend.of_type("up")), 3)
+        self.assertEqual(len(backend.of_type("click")), 3)
+        # a click is atomic: nothing may be left holding a button down
+        self.assertEqual(backend.of_type("down"), [])
+        self.assertFalse(pipeline.mouse.pressed)
 
     def test_hand_loss_never_leaves_the_button_down(self) -> None:
         config = Config(dry_run=True)
@@ -73,10 +75,10 @@ class TestPipelineClicks(unittest.TestCase):
         for _ in range(6):
             now += FRAME_MS
             pipeline.step(make_hand(pinch=0.18), now)
-        self.assertTrue(pipeline.mouse.pressed)
+        self.assertFalse(pipeline.mouse.pressed)
         pipeline.step(None, now + 900)
         self.assertFalse(pipeline.mouse.pressed)
-        self.assertEqual(len(backend.of_type("up")), 1)
+        self.assertEqual(backend.of_type("up"), [])
 
 
 class TestReacquire(unittest.TestCase):
