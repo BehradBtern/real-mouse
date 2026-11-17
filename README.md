@@ -1,8 +1,8 @@
 # Real Mouse — webcam hand tracking that behaves like a pointer
 
 This is the project from that single-file script, rebuilt as a pointer engine you can
-actually use: camera in, real cursor out. No cloud, no downloads beyond MediaPipe's
-bundled hand model.
+actually use: camera in, real cursor out. No magic, no cloud, no model downloads beyond
+MediaPipe's bundled hand model.
 
 ```
 landmarks → gesture engine → mapper → One-Euro filter → deadband → sub-pixel → OS pointer
@@ -50,8 +50,23 @@ python scripts/run.py --dry-run
 | Closed fist + move up/down | scroll with momentum |
 | Open your hand / leave the frame | everything releases |
 
-Hotkeys in the preview: `q` quit · `r` recalibrate · `m` mirror · `p` pause ·
+Hotkeys in the preview: `q` quit · `c` switch camera · `r` recalibrate · `m` mirror · `p` pause ·
 `+`/`-` gain · `1` precise · `2` balanced · `3` fast.
+
+### Several cameras
+
+See which cameras actually work (probes indices 0–4 and reports the ones that
+deliver frames):
+
+```bash
+python scripts/run.py --list-cameras
+# cameras: 0, 1, 2
+```
+
+`c` cycles through them live — 0 → 1 → 2 → 0. The first press takes a moment
+because the tracker has to release the device before it can probe; after that the
+list is cached. The status panel always shows the camera in use (`cam1`). A switch
+that fails (device busy, unplugged) keeps the previous camera and says so on screen.
 
 ## Modes
 
@@ -85,7 +100,7 @@ The presets (`precise`, `balanced`, `fast`) are just bundles of these numbers.
 No camera needed for either of these.
 
 ```bash
-python scripts/test.py          # 49 unit + pipeline tests, stdlib only
+python scripts/test.py          # 58 unit + pipeline tests, stdlib only
 python scripts/simulate.py --json docs/simulation.json --svg docs/simulation-path.svg
 ```
 
@@ -125,23 +140,24 @@ test_fist_enters_scroll_and_suppresses_clicks ... ok
 test_hand_loss_never_leaves_the_button_down   ... ok
 ```
 
-49 tests in total; `scripts/test.py` exits non-zero on the first failure.
+58 tests in total; `scripts/test.py` exits non-zero on the first failure.
 
 ## Layout
 
 ```
 virtual_mouse/
   config.py     every tunable constant
+  cameras.py    which camera comes next (pure, testable)
   filters.py    One-Euro, Schmitt trigger, deadband, sub-pixel accumulator
   gestures.py   landmark → gesture state machine
   mapping.py    absolute / relative mapping, edge curve, clamping
   actions.py    pyautogui backend + a recording backend for tests
   pipeline.py   the exact chain the app runs
-  tracking.py   camera + MediaPipe (the only module that needs them)
+  tracking.py   camera + MediaPipe, including live camera switching
   hud.py        on-camera overlay
   app.py        loop, CLI, hotkeys
 scripts/        run.py · test.py · simulate.py
-tests/          49 tests, no hardware required
+tests/          58 tests, no hardware required
 docs/           simulation.json (add --svg to generate the path plot)
 ```
 
@@ -152,6 +168,7 @@ docs/           simulation.json (add --svg to generate the path plot)
 - 60fps tracking needs a 720p webcam; the lite model (`model_complexity=0`) is the default.
 - Windows/macOS/Linux all work through `pyautogui`; Wayland needs XWayland.
 - `pyautogui.FAILSAFE` is on: slam the pointer into a screen corner to abort.
+- Only one process can hold a camera on Windows; close other apps before switching.
 
 ## Rollback
 
