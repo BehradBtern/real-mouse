@@ -4,7 +4,7 @@
 
 Hotkeys (focus the preview window):
     q / Esc  quit        c  switch camera      r  recalibrate     m  mirror
-    p        pause       +/-  gain             1/2/3  presets
+    p        pause       [ ]  deadband         1/2/3  presets
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from dataclasses import replace
 
 from . import hud
 from .config import Config
+from .gestures import HandCoaster
 from .pipeline import Pipeline, make_smoother
 from .tracking import HandTracker, TrackerUnavailable
 
@@ -43,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-preview", action="store_true", help="run without the preview window")
     parser.add_argument("--no-landmarks", action="store_true", help="hide the hand skeleton")
     parser.add_argument("--dry-run", action="store_true", help="never move the real pointer")
+    parser.add_argument("--debug", action="store_true", help="print tracking statistics every 2s")
     parser.add_argument("--no-failsafe", action="store_true", help="disable the corner failsafe")
     parser.add_argument("--list-presets", action="store_true", help="print the presets and exit")
     return parser
@@ -58,6 +60,7 @@ def config_from_args(args: argparse.Namespace, base: Config | None = None) -> Co
         "show_preview": False if args.no_preview else None,
         "draw_landmarks": False if args.no_landmarks else None,
         "dry_run": True if args.dry_run else None,
+        "debug": True if args.debug else None,
         "failsafe": False if args.no_failsafe else None,
     }
     config = config.with_overrides(**overrides)
@@ -78,7 +81,17 @@ def run(config: Config) -> int:
     fps = 0.0
     last = time.perf_counter()
 
-    print("virtual-mouse running — press q in the preview to quit")
+    # counters for --debug: how often the hand is seen, how often a dropped
+    # frame was covered by coasting, and how often the anchor left the box
+    frames = 0
+    hand_frames = 0
+    outside_frames = 0
+    coast_frames = 0
+    coaster = HandCoaster(config.coast_ms)
+    report_at = time.perf_counter() + 2.0
+    stats_line: str | None = None
+
+    print("virtual-mouse running - press q in the preview to quit")
     print(f"  mode={config.mode}  region={config.region}  smoothing={config.min_cutoff}/{config.beta}")
 
     try:
@@ -89,6 +102,22 @@ def run(config: Config) -> int:
                 return 3
 
             now_ms = time.perf_counter() * 1000.0
+            hand, coasted = coaster.update(hand, now_ms)
+            if coasted:
+                coast_frames += 1
+
+            frames += 1
+            if hand is not None:
+                hand_frames += 1
+                u, v = hand.anchor()
+                if (
+                    u < config.region_left
+                    or u > config.region_right
+                    or v < config.region_top
+                    or v > config.region_bottom
+                ):
+                    outside_frames += 1
+
             if paused:
                 intent = pipeline.gestures.update(None, now_ms)
             else:
@@ -103,6 +132,21 @@ def run(config: Config) -> int:
             last = time.perf_counter()
             fps = instant if fps == 0 else fps * 0.9 + instant * 0.1
 
+            if config.debug and time.perf_counter() >= report_at:
+                seen = 100.0 * hand_frames / max(1, frames)
+                outside = 100.0 * outside_frames / max(1, hand_frames)
+                coasted_pct = 100.0 * coast_frames / max(1, frames)
+                stats_line = (
+                    f"hand {seen:3.0f}%   coast {coasted_pct:3.0f}%   "
+                    f"out {outside:3.0f}%   db {pipeline.deadband.threshold:.2f}"
+                )
+                print(
+                    f"stats hand={seen:5.1f}% coast={coasted_pct:5.1f}% outside_box={outside:5.1f}% "
+                    f"fps={fps:5.1f} deadband={pipeline.deadband.threshold:.2f} pos={position}"
+                )
+                frames = hand_frames = outside_frames = coast_frames = 0
+                report_at = time.perf_counter() + 2.0
+
             if config.show_preview:
                 tracker.annotate(frame, raw)
                 hud.draw(
@@ -115,8 +159,9 @@ def run(config: Config) -> int:
                     paused,
                     camera=tracker.index,
                     notice=tracker.active_notice(),
+                    stats=stats_line,
                 )
-                tracker.cv2.imshow("Real Mouse — virtual pointer", frame)
+                tracker.cv2.imshow("Real Mouse - virtual pointer", frame)
 
                 key = tracker.cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), 27):
@@ -130,6 +175,11 @@ def run(config: Config) -> int:
                 if key == ord("r"):
                     pipeline.reset()
                     print("recalibrated")
+                if key in (ord("["), ord("]")):
+                    step = -0.1 if key == ord("[") else 0.1
+                    value = pipeline.deadband.set_threshold(pipeline.deadband.threshold + step)
+                    tracker.notice = (f"deadband {value:.1f}px", time.perf_counter())
+                    print(f"deadband={value:.2f}")
                 if key == ord("p"):
                     paused = not paused
                 if key == ord("m"):
@@ -164,7 +214,7 @@ def run(config: Config) -> int:
         tracker.close()
 
     print(
-        f"stopped — moves={pipeline.mouse.moves} clicks={pipeline.mouse.clicks} "
+        f"stopped - moves={pipeline.mouse.moves} clicks={pipeline.mouse.clicks} "
         f"scroll={pipeline.mouse.scroll_notches}"
     )
     return 0

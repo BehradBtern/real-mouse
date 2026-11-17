@@ -36,6 +36,7 @@ def draw(
     paused: bool = False,
     camera: int = 0,
     notice: str | None = None,
+    stats: str | None = None,
 ) -> None:
     height, width = frame.shape[:2]
 
@@ -101,8 +102,17 @@ def draw(
     )
 
     # ---- hint line -------------------------------------------------------
-    hints = "q quit   c camera   r reset   m mirror   p pause   +/- gain   1/2/3 presets"
+    hints = "q quit   c camera   r reset   m mirror   p pause   [ ] deadband   1/2/3 presets"
     cv2.putText(frame, hints, (14, height - 14), cv2.FONT_HERSHEY_SIMPLEX, 0.34, MUTED, 1, cv2.LINE_AA)
+
+    if stats:
+        cv2.putText(frame, stats, (14, height - 34), cv2.FONT_HERSHEY_SIMPLEX, 0.38, MUTED, 1, cv2.LINE_AA)
+
+    if intent.hand_lost:
+        label = "NO HAND"
+        (lw, _), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+        _rounded(cv2, frame, width - lw - 44, 18, lw + 28, 30, 6, WARN, 0.8)
+        cv2.putText(frame, label, (width - lw - 30, 39), cv2.FONT_HERSHEY_SIMPLEX, 0.5, PAPER, 2, cv2.LINE_AA)
 
     # ---- transient notice (camera switch, errors) -----------------------
     if notice:

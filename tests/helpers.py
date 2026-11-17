@@ -8,6 +8,7 @@ import random
 from virtual_mouse.gestures import HandFrame
 
 FRAME_MS = 1000.0 / 60.0
+SCALE = 0.28  # wrist -> middle knuckle, in normalized units
 
 
 def make_hand(
@@ -19,50 +20,55 @@ def make_hand(
 ) -> HandFrame:
     """Build a 21-point hand with a controlled normalized pinch ratio.
 
-    `hand_scale` is the wrist -> middle-knuckle distance, fixed at 0.28 here, so
-    a pinch ratio of r means the index tip is exactly r * 0.28 away from the
-    thumb tip. That makes the threshold tests exact instead of approximate.
+    `hand_scale` is the wrist -> middle-knuckle distance, fixed at SCALE here,
+    so a pinch ratio of r means the index tip is exactly r * SCALE away from the
+    thumb tip. Extending a finger puts its tip ~2 SCALE from the wrist, which is
+    what the rotation-invariant fist test looks at.
     """
-    scale = 0.28
     points = [(x, y)] * 21
 
-    wrist = (x, y + scale)
-    middle_mcp = (x, y)
-    thumb_tip = (x, y)
-    index_tip = (x + pinch * scale, y)
-    middle_tip = (x + middle_pinch * scale, y + 0.015)
-
+    wrist = (x, y + SCALE)
     points[0] = wrist
-    points[9] = middle_mcp
-    points[4] = thumb_tip
-    points[8] = index_tip
-    points[12] = middle_tip
+    points[9] = (x, y)                      # middle knuckle -> hand scale anchor
+    points[4] = (x, y)                      # thumb tip
+    points[8] = (x + pinch * SCALE, y)      # index tip
+    points[12] = (x + middle_pinch * SCALE, y + 0.015)
 
     if fist:
-        # every fingertip below its own PIP joint -> fist
-        for tip_idx, pip_idx, offset in (
+        # every fingertip curled back towards the wrist
+        for tip_idx, pip_idx, dy in (
             (8, 6, 0.02),
             (12, 10, 0.03),
             (16, 14, 0.04),
             (20, 18, 0.05),
         ):
-            points[pip_idx] = (x + 0.02 * (tip_idx % 3), y - 0.02)
-            points[tip_idx] = (x + 0.02 * (tip_idx % 3), y + offset)
+            points[pip_idx] = (x + 0.02, y - 0.02)
+            points[tip_idx] = (x + 0.02, y + dy)
     else:
-        for tip_idx, pip_idx, offset in (
-            (8, 6, 0.10),
-            (12, 10, 0.11),
-            (16, 14, 0.12),
-            (20, 18, 0.13),
-        ):
-            points[pip_idx] = (x + 0.02, y + 0.03)
-            points[tip_idx] = (points[pip_idx][0], points[pip_idx][1] - offset)
-
-        # keep the deliberately positioned tips for the gesture maths
-        points[8] = index_tip
-        points[12] = middle_tip
+        # extended fingers: tips roughly 2x hand-scale away from the wrist
+        for tip_idx, pip_idx in ((16, 14), (20, 18)):
+            points[pip_idx] = (x + 0.02, y - 0.05)
+            points[tip_idx] = (x + 0.02, y - 0.32)
+        # keep the deliberately positioned index/middle tips for pinch maths
+        points[8] = (x + pinch * SCALE, y)
+        points[12] = (x + middle_pinch * SCALE, y + 0.015)
 
     return HandFrame(points=points)
+
+
+def rotate(hand: HandFrame, degrees: float, origin: tuple[float, float] | None = None) -> HandFrame:
+    """Rotate every landmark around the wrist.
+
+    Used to prove the fist test is orientation-independent.
+    """
+    ox, oy = origin if origin is not None else hand.points[0]
+    angle = math.radians(degrees)
+    cos_a, sin_a = math.cos(angle), math.sin(angle)
+    moved = []
+    for px, py in hand.points:
+        dx, dy = px - ox, py - oy
+        moved.append((ox + dx * cos_a - dy * sin_a, oy + dx * sin_a + dy * cos_a))
+    return HandFrame(points=moved, handedness=hand.handedness)
 
 
 def noisy_circle(frames: int, radius: float = 0.22, sigma: float = 0.004, seed: int = 7):
