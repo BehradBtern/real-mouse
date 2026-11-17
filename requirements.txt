@@ -1,0 +1,10 @@
+# Runtime dependencies for the live app (hand tracking + pointer control).
+# The test suite and the simulator need none of these — they are stdlib only.
+
+opencv-python>=4.9
+mediapipe>=0.10.14
+pyautogui>=0.9.54
+
+# Windows note: mediapipe publishes wheels for CPython 3.9–3.12.
+# If `pip install` cannot find a wheel on 3.13+, run the app with 3.11/3.12:
+#   py -3.12 -m pip install -r requirements.txt

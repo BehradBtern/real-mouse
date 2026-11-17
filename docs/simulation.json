@@ -1,0 +1,21 @@
+{
+  "frames": 310,
+  "duration_s": 5.17,
+  "moves": 232,
+  "left_downs": 4,
+  "left_ups": 4,
+  "drags": 1,
+  "right_clicks": 1,
+  "scroll_notches": 16,
+  "scroll_events": 16,
+  "raw_jitter_px": 23.349,
+  "cursor_jitter_px": 15.213,
+  "jitter_reduction_pct": 34.8,
+  "max_frame_jump_px": 114.8,
+  "path_length_px": 6370.0,
+  "final_position": [
+    1532,
+    101
+  ],
+  "seed": 11
+}
