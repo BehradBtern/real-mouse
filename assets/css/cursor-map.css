@@ -1,0 +1,54 @@
+/* RealMouse — semantic cursor intents.
+   The engine reads the *computed* cursor value of the element under the drawn
+   pointer and maps it to a glyph, so every interactive element declares its
+   intent here. body[rm-custom-cursor] hides the native cursor. */
+
+body.rm-custom-cursor a,
+body.rm-custom-cursor button,
+body.rm-custom-cursor .btn,
+body.rm-custom-cursor .inline-link,
+body.rm-custom-cursor .segmented__btn,
+body.rm-custom-cursor .rail__btn,
+body.rm-custom-cursor .telemetry__toggle,
+body.rm-custom-cursor .timing__target,
+body.rm-custom-cursor .menu__item,
+body.rm-custom-cursor summary,
+body.rm-custom-cursor [role="button"],
+body.rm-custom-cursor [data-cursor="pointer"] {
+  cursor: pointer;
+}
+
+body.rm-custom-cursor input[type="text"],
+body.rm-custom-cursor input[type="search"],
+body.rm-custom-cursor input[type="email"],
+body.rm-custom-cursor input[type="password"],
+body.rm-custom-cursor input[type="number"],
+body.rm-custom-cursor textarea,
+body.rm-custom-cursor [contenteditable="true"],
+body.rm-custom-cursor [data-cursor="text"] {
+  cursor: text;
+}
+
+body.rm-custom-cursor input[type="range"],
+body.rm-custom-cursor [data-cursor="resize"] {
+  cursor: ew-resize;
+}
+
+body.rm-custom-cursor .drag-card {
+  cursor: grab;
+}
+
+body.rm-custom-cursor .drag-card.is-dragging,
+body.rm-custom-cursor [data-cursor="grabbing"] {
+  cursor: grabbing;
+}
+
+body.rm-custom-cursor .panel-resize__handle {
+  cursor: ew-resize;
+}
+
+body.rm-custom-cursor [disabled],
+body.rm-custom-cursor [aria-disabled="true"],
+body.rm-custom-cursor [data-cursor="not-allowed"] {
+  cursor: not-allowed;
+}

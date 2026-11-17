@@ -1,0 +1,18 @@
+{
+  "name": "realmouse",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A browser pointer with real driver behaviour: adaptive smoothing, sub-pixel tracking, wheel detents, kinetic drag and tactile clicks.",
+  "homepage": "https://github.com/engineerdiaa/real-mouse",
+  "license": "MIT",
+  "author": "Behrad",
+  "keywords": ["pointer", "cursor", "interaction", "one-euro", "accessibility"],
+  "scripts": {
+    "serve": "node qa/serve.mjs",
+    "qa": "node qa/run.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

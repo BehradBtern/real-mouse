@@ -1,0 +1,51 @@
+/* RealMouse — design tokens (Build: contemporary minimal luxury) */
+:root {
+  /* surface */
+  --paper: #f4f2ed;
+  --surface: #fbfaf7;
+  --surface-sunk: #efede7;
+  --ink: #151311;
+  --ink-soft: #3b3733;
+  --muted: #6b6660;
+  --faint: #9a948c;
+  --hairline: rgba(21, 19, 17, 0.1);
+  --hairline-strong: rgba(21, 19, 17, 0.18);
+  --accent: #a8461c;
+  --accent-soft: rgba(168, 70, 28, 0.12);
+  --accent-ink: #8a3813;
+
+  /* type */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  /* metrics */
+  --gutter: clamp(20px, 4.4vw, 64px);
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --rail-w: 320px;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --fast: 140ms;
+  --base: 200ms;
+  --slow: 260ms;
+
+  /* elevation */
+  --shadow-stage: 0 1px 2px rgba(21, 19, 17, 0.04), 0 18px 40px -24px rgba(21, 19, 17, 0.18);
+  --shadow-lift: 0 2px 6px rgba(21, 19, 17, 0.08), 0 28px 56px -28px rgba(21, 19, 17, 0.28);
+
+  /* runtime (written by JS) */
+  --cursor-x: 50vw;
+  --cursor-y: 50vh;
+  --cursor-scale: 1;
+  --cursor-size: 24px;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --hairline: rgba(21, 19, 17, 0.28);
+    --hairline-strong: rgba(21, 19, 17, 0.42);
+    --muted: #514c46;
+  }
+}
