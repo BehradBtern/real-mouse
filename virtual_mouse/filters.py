@@ -104,6 +104,39 @@ class OneEuro2D:
         return math.hypot(self.fx.dx_prev, self.fy.dx_prev)
 
 
+class Hysteresis:
+    """Schmitt trigger: a gesture must cross `on` to start and `off` to stop.
+
+    This is what stops a pinch from flickering into five clicks when the
+    thumb hovers exactly at the threshold.
+    """
+
+    def __init__(self, on: float, off: float, invert: bool = False) -> None:
+        if off <= on and not invert:
+            raise ValueError("release threshold must be greater than press threshold")
+        self.on = on
+        self.off = off
+        self.invert = invert
+        self.active = False
+
+    def update(self, value: float) -> bool:
+        if self.invert:
+            # "greater than on" starts the gesture (used for open-hand tests)
+            if not self.active and value >= self.on:
+                self.active = True
+            elif self.active and value <= self.off:
+                self.active = False
+        else:
+            if not self.active and value <= self.on:
+                self.active = True
+            elif self.active and value >= self.off:
+                self.active = False
+        return self.active
+
+    def reset(self) -> None:
+        self.active = False
+
+
 class Deadband:
     """Ignore movements smaller than `threshold` pixels, pass the rest intact."""
 
