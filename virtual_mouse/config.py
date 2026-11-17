@@ -19,18 +19,20 @@ class Config:
     inference_width: int = 640          # frames are downscaled to this before MediaPipe
     max_num_hands: int = 1
     model_complexity: int = 0           # 0 = lite (fast), 1 = full (precise)
-    min_detection_confidence: float = 0.7
-    min_tracking_confidence: float = 0.7
+    min_detection_confidence: float = 0.45
+    min_tracking_confidence: float = 0.45
+    smooth_landmarks: bool = True
+    coast_ms: float = 250.0             # reuse the last landmarks through short dropouts
     mirror: bool = True
     target_fps: int = 60
 
     # ---- active region ---------------------------------------------------
     # Hand positions are read inside this box (fractions of the frame) so you
     # never have to reach the edge of the camera image.
-    region_left: float = 0.18
-    region_right: float = 0.82
-    region_top: float = 0.16
-    region_bottom: float = 0.84
+    region_left: float = 0.14
+    region_right: float = 0.86
+    region_top: float = 0.12
+    region_bottom: float = 0.88
     edge_gamma: float = 0.82            # <1 = more gain near the edges
     edge_gain: bool = True
 
@@ -38,25 +40,24 @@ class Config:
     min_cutoff: float = 1.0             # One-Euro base frequency (Hz)
     beta: float = 0.35                  # 0..1 responsiveness dial (speed term)
     d_cutoff: float = 1.0
-    deadband_px: float = 0.40           # ignore sub-pixel tremor
-    reacquire_frames: int = 6           # soft re-acquire instead of a teleport
-    lost_after_ms: float = 320.0
+    deadband_px: float = 0.80           # ignore sub-pixel tremor (bigger = steadier)
+    reacquire_frames: int = 3           # soft re-acquire instead of a teleport
+    lost_after_ms: float = 500.0
 
     # ---- gestures --------------------------------------------------------
-    pinch_press: float = 0.38           # normalized index-thumb distance
-    pinch_release: float = 0.56
-    right_pinch_press: float = 0.32
-    right_pinch_release: float = 0.48
-    stable_frames: int = 2              # frames a pinch must hold before it counts
+    pinch_press: float = 0.50           # normalized index-thumb distance
+    pinch_release: float = 0.72
+    right_pinch_press: float = 0.45
+    right_pinch_release: float = 0.65
+    stable_frames: int = 1              # frames a pinch must hold before it counts
     right_click_cooldown_ms: float = 350.0
-    drag_hold_ms: float = 0.0           # 0 = press stays until released
-    click_guard_ms: float = 120.0       # ignore new gestures right after a release
+    click_guard_ms: float = 150.0       # ignore a second click right after one fires
 
     # ---- scroll ----------------------------------------------------------
-    fist_enter_frames: int = 3
+    fist_enter_frames: int = 2
     fist_exit_frames: int = 2
-    scroll_deadband: float = 0.004      # normalized wrist movement ignored
-    scroll_gain: float = 46.0           # notches per frame-height of wrist travel
+    scroll_deadband: float = 0.003      # normalized wrist movement ignored
+    scroll_gain: float = 60.0           # notches per frame-height of wrist travel
     scroll_momentum: float = 0.86
     scroll_max_step: int = 4
 
@@ -69,6 +70,7 @@ class Config:
     # ---- runtime ---------------------------------------------------------
     show_preview: bool = True
     draw_landmarks: bool = True
+    debug: bool = False                 # print detection / clamp statistics every 2s
     dry_run: bool = False               # never touch the real pointer (tests/demo)
     failsafe: bool = True
 
