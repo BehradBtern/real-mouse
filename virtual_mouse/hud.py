@@ -1,8 +1,8 @@
 """On-camera heads-up display.
 
 The overlay is how you *see* what the engine believes: the active box, the
-current gesture, the pinch value and where the pointer actually is. Without it,
-tuning the feel is guesswork.
+current gesture, the pinch value, which camera is live and where the pointer
+actually is. Without it, tuning the feel is guesswork.
 """
 
 from __future__ import annotations
@@ -34,6 +34,8 @@ def draw(
     position: tuple[float, float],
     fps: float,
     paused: bool = False,
+    camera: int = 0,
+    notice: str | None = None,
 ) -> None:
     height, width = frame.shape[:2]
 
@@ -74,7 +76,7 @@ def draw(
     cv2.putText(frame, "REAL MOUSE", (22, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.45, PAPER, 1, cv2.LINE_AA)
     cv2.putText(
         frame,
-        f"{fps:5.1f} fps   {config.mode[:3]}",
+        f"{fps:5.1f} fps   {config.mode[:3]}   cam{camera}",
         (22, 52),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.38,
@@ -99,8 +101,15 @@ def draw(
     )
 
     # ---- hint line -------------------------------------------------------
-    hints = "q quit   r reset   m mirror   p pause   +/- gain   1/2/3 presets"
+    hints = "q quit   c camera   r reset   m mirror   p pause   +/- gain   1/2/3 presets"
     cv2.putText(frame, hints, (14, height - 14), cv2.FONT_HERSHEY_SIMPLEX, 0.34, MUTED, 1, cv2.LINE_AA)
+
+    # ---- transient notice (camera switch, errors) -----------------------
+    if notice:
+        (tw, th), _ = cv2.getTextSize(notice, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
+        cx = (width - tw) // 2
+        _rounded(cv2, frame, cx - 16, 60, tw + 32, 34, 6, INK, 0.72)
+        cv2.putText(frame, notice, (cx, 83), cv2.FONT_HERSHEY_SIMPLEX, 0.55, PAPER, 1, cv2.LINE_AA)
 
     if intent.scrolling:
         cv2.putText(

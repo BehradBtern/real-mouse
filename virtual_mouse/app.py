@@ -3,7 +3,7 @@
     python -m virtual_mouse.app --mode absolute --camera 0
 
 Hotkeys (focus the preview window):
-    q / Esc  quit        r  recalibrate        m  mirror
+    q / Esc  quit        c  switch camera      r  recalibrate     m  mirror
     p        pause       +/-  gain             1/2/3  presets
 """
 
@@ -35,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Webcam hand tracking that drives the real pointer.",
     )
     parser.add_argument("--camera", type=int, default=None, help="camera index (default 0)")
+    parser.add_argument("--list-cameras", action="store_true", help="probe and print the working cameras, then exit")
     parser.add_argument("--mode", choices=["absolute", "relative"], default=None, help="pointer mapping")
     parser.add_argument("--gain", type=float, default=None, help="relative mode gain")
     parser.add_argument("--gamma", type=float, default=None, help="edge gain curve (1.0 = linear)")
@@ -104,12 +105,28 @@ def run(config: Config) -> int:
 
             if config.show_preview:
                 tracker.annotate(frame, raw)
-                hud.draw(tracker.cv2, frame, config, intent, position, fps, paused)
+                hud.draw(
+                    tracker.cv2,
+                    frame,
+                    config,
+                    intent,
+                    position,
+                    fps,
+                    paused,
+                    camera=tracker.index,
+                    notice=tracker.active_notice(),
+                )
                 tracker.cv2.imshow("Real Mouse — virtual pointer", frame)
 
                 key = tracker.cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), 27):
                     break
+                if key == ord("c"):
+                    new_index = tracker.cycle_camera()
+                    if new_index is not None:
+                        config = replace(config, camera_index=new_index)
+                        pipeline.config = config
+                        print(f"camera={new_index}")
                 if key == ord("r"):
                     pipeline.reset()
                     print("recalibrated")
@@ -160,6 +177,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.list_presets:
         for name, values in PRESETS.items():
             print(f"{name:9s} {values}")
+        return 0
+
+    if args.list_cameras:
+        config = config_from_args(args)
+        try:
+            tracker = HandTracker(config)
+        except TrackerUnavailable as exc:
+            print(f"error: {exc}")
+            return 2
+        tracker.release_camera()
+        found = tracker.detect_cameras()
+        tracker.close()
+        print("cameras:", ", ".join(str(i) for i in found) if found else "none")
         return 0
 
     return run(config_from_args(args))
