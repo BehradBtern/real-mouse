@@ -1,0 +1,40 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # The core, the tests and the simulator are stdlib only — no pip install.
+      - name: Unit and pipeline tests
+        run: python scripts/test.py
+
+      - name: Headless session simulation
+        run: python scripts/simulate.py
+
+      - name: Simulation must keep the gesture contract
+        run: |
+          python scripts/simulate.py --json /tmp/sim.json
+          python - <<'PY'
+          import json
+          data = json.load(open("/tmp/sim.json"))
+          assert data["held_buttons"] == 0, "a click turned into a held button"
+          assert data["left_clicks"] >= 3, "clicks stopped registering"
+          assert data["scroll_notches"] > 0, "scroll produced nothing"
+          print("gesture contract ok:", data["left_clicks"], "clicks,", data["scroll_notches"], "notches")
+          PY
