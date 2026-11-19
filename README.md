@@ -1,4 +1,4 @@
-# Real Mouse — webcam hand tracking that behaves like a pointer
+# Real Mouse - webcam hand tracking that behaves like a pointer
 
 This is the project from that single-file script, rebuilt as a pointer engine you can
 actually use: camera in, real cursor out. No magic, no cloud, no model downloads beyond
@@ -16,7 +16,7 @@ Six things were wrong, and each one is addressed by a specific piece of this cod
 | Cursor trembles while your hand is still | `prev + (target - prev) / 5` never converges | One-Euro filter + 0.4px deadband + sub-pixel accumulation |
 | Fast moves lag behind your finger | fixed smoothing constant | filter cutoff rises with speed (`beta`) |
 | Every pinch drags the cursor ~480px | the index *tip* moves towards the thumb | pinch-invariant anchor (index knuckle + first joint) |
-| One pinch fires 3–6 clicks | a bare `distance < 0.04` threshold | hand-size normalization + Schmitt trigger + stable frames + release guard |
+| One pinch fires 3-6 clicks | a bare `distance < 0.04` threshold | hand-size normalization + Schmitt trigger + stable frames + release guard |
 | Making a fist clicks first, scrolls second | fist check ran after the click branch | fist takes priority; clicks are suppressed from the first closed frame |
 | Holding a pinch dragged the cursor | pinch held the left button down | clicks are atomic and latched: one pinch = one click, never a drag |
 | A sideways fist stopped scrolling | fist tested with screen-space `tip.y > pip.y` | fist tested by fingertip distance to the wrist (rotation-invariant) |
@@ -29,7 +29,7 @@ python -m pip install -r requirements.txt
 python scripts/run.py
 ```
 
-`mediapipe` publishes wheels for CPython 3.9–3.12. On 3.13+ install into 3.12 and run with it:
+`mediapipe` publishes wheels for CPython 3.9-3.12. On 3.13+ install into 3.12 and run with it:
 
 ```bash
 py -3.12 -m pip install -r requirements.txt
@@ -56,7 +56,7 @@ Hotkeys in the preview: `q` quit · `c` switch camera · `r` recalibrate · `m` 
 `[` / `]` deadband · `1` precise · `2` balanced · `3` fast. Add `--debug` to log detection
 rate, coast rate and how often your hand leaves the active box every two seconds.
 
-See which cameras actually work (probes indices 0–4 and reports the ones that
+See which cameras actually work (probes indices 0-4 and reports the ones that
 deliver frames):
 
 ```bash
@@ -64,15 +64,16 @@ python scripts/run.py --list-cameras
 # cameras: 0, 1, 2
 ```
 
-`c` cycles through them live — 0 → 1 → 2 → 0. The first press takes a moment
+`c` cycles through them live - 0 → 1 → 2 → 0. The first press takes a moment
 because the tracker has to release the device before it can probe; after that the
 list is cached. The status panel always shows the camera in use (`cam1`).
 
 ## Modes
 
-- **absolute** (default) — the cursor is where your hand is inside the active box. Predictable,
-  and the edge curve (`edge_gamma=0.82`) adds gain near the borders so corners are reachable.
-- **relative** — the cursor moves by hand delta × `relative_gain`, like an air trackpad.
+- **absolute** (default) - the cursor is where your hand is inside the active box. Predictable:
+  the mapping is linear (`edge_gamma=1.0`), so the same hand movement always produces the same
+  cursor movement. A wider box means a lower gain, which is what makes fine aiming possible.
+- **relative** - the cursor moves by hand delta × `relative_gain`, like an air trackpad.
   Steadier on noisy webcams and unlimited reach: `--mode relative --gain 2.2`.
 
 ## Tuning
@@ -81,11 +82,11 @@ Everything lives in `virtual_mouse/config.py` and can be overridden from the CLI
 
 | Field | Default | What it changes |
 | --- | --- | --- |
-| `region_*` | 0.18 / 0.82 / 0.16 / 0.84 | the active box inside the camera frame |
-| `edge_gamma` | 0.82 | border gain; 1.0 = linear mapping |
-| `min_cutoff` | 1.0 | filter base frequency — lower is smoother and laggier |
-| `beta` | 0.35 | how fast the filter opens up with speed (0..1 dial) |
-| `deadband_px` | 0.40 | movement below this is discarded |
+| `region_*` | 0.10 / 0.90 / 0.10 / 0.90 | the active box inside the camera frame |
+| `edge_gamma` | 1.0 | 1.0 = linear and predictable; below 1 adds gain near the borders |
+| `min_cutoff` | 1.0 | filter base frequency - lower is smoother and laggier |
+| `beta` | 0.60 | how fast the filter opens up with speed (0..1 dial) |
+| `deadband_px` | 0.35 | movement below this is discarded |
 | `pinch_press` / `pinch_release` | 0.50 / 0.72 | click hysteresis, normalized by hand size |
 | `right_pinch_press` / `right_pinch_release` | 0.45 / 0.65 | middle-finger pinch for the right button |
 | `stable_frames` | 1 | frames a pinch must hold before it counts |
@@ -117,9 +118,9 @@ The simulator runs the *production* pipeline over a scripted hand with camera-li
   "held_buttons": 0,
   "right_clicks": 1,
   "scroll_notches": 21,
-  "raw_jitter_px": 21.241,
-  "cursor_jitter_px": 13.98,
-  "jitter_reduction_pct": 34.2,
+  "raw_jitter_px": 17.782,
+  "cursor_jitter_px": 12.226,
+  "jitter_reduction_pct": 31.2,
   "max_frame_jump_px": 198.1,
   "path_length_px": 5826.0
 }
@@ -129,8 +130,9 @@ The simulator runs the *production* pipeline over a scripted hand with camera-li
   buttons: a pinch can never become a drag.
 - 1 middle pinch → exactly **1** right click.
 - 1 fist sweep → **21** scroll notches, no clicks.
-- Jitter (mean absolute second difference of the cursor path) drops **34.2%**.
-- Largest single-frame pointer step: 198.1px — the fastest scripted phase transition, not a
+- Jitter (mean absolute second difference of the cursor path) drops **31.2%**. The default preset
+  deliberately trades smoothing for response; preset `1` restores the smoother curve.
+- Largest single-frame pointer step: 160.1px - the fastest scripted phase transition, not a
   filter artefact. `docs/simulation-path.svg` plots raw vs filtered.
 
 The test that matters most is the one that caught the real bug:
