@@ -124,7 +124,7 @@ class Intent:
 class HandCoaster:
     """Reuse the last landmarks through a short detection dropout.
 
-    MediaPipe loses the hand for a few frames at a time on ordinary webcams --
+    MediaPipe loses the hand for a few frames at a time on ordinary webcams —
     measured at 37% detection in some two-second windows. Treating each miss as
     "hand gone" froze the pointer and forced a re-acquire blend, which read as
     "half my movements do nothing". Coasting keeps the last pose alive for a

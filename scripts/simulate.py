@@ -2,8 +2,11 @@
 
 This exists because a webcam is not required to prove the engine works. It runs
 the *real* pipeline (gestures -> mapping -> filter -> controller) over a scripted
-hand with sensor noise, then reports clicks, coasting-free gesture counts and
-how much jitter the filter removed.
+hand with sensor noise, then reports:
+
+  * how many clean clicks / right clicks / scroll notches came out of it,
+  * that no click ever turned into a held button (drag is gone),
+  * how much jitter the filter removed.
 
     python scripts/simulate.py
     python scripts/simulate.py --json docs/simulation.json --svg docs/simulation-path.svg

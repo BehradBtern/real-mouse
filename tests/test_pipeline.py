@@ -13,7 +13,9 @@ from virtual_mouse.pipeline import Pipeline, path_jitter
 
 class TestPipelineSmoothing(unittest.TestCase):
     def test_cursor_is_smoother_than_the_raw_mapping(self) -> None:
-        config = Config(dry_run=True)
+        # Explicitly smoothing-tuned config: this tests what the filter can do,
+        # not what the default preset happens to be.
+        config = Config(dry_run=True, beta=0.15, deadband_px=0.0)
         backend = RecordingBackend()
         pipeline = Pipeline(config, backend)
         raw_mapper = Mapper(pipeline.mouse.width, pipeline.mouse.height, config)
@@ -39,7 +41,7 @@ class TestPipelineSmoothing(unittest.TestCase):
         now = 0.0
         for _ in range(30):
             now += FRAME_MS
-            pipeline.step(make_hand(pinch=1.0, x=0.5, y=0.5), now)
+            pipeline.step(make_hand(pinch=1.0, x=0.5, y=0.5, ), now)
         moves_before = len(backend.of_type("move"))
         for _ in range(30):
             now += FRAME_MS

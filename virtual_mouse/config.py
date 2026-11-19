@@ -29,18 +29,18 @@ class Config:
     # ---- active region ---------------------------------------------------
     # Hand positions are read inside this box (fractions of the frame) so you
     # never have to reach the edge of the camera image.
-    region_left: float = 0.14
-    region_right: float = 0.86
-    region_top: float = 0.12
-    region_bottom: float = 0.88
-    edge_gamma: float = 0.82            # <1 = more gain near the edges
+    region_left: float = 0.10
+    region_right: float = 0.90
+    region_top: float = 0.10
+    region_bottom: float = 0.90
+    edge_gamma: float = 1.0             # 1.0 = linear, predictable; <1 = faster near the edges
     edge_gain: bool = True
 
     # ---- smoothing -------------------------------------------------------
     min_cutoff: float = 1.0             # One-Euro base frequency (Hz)
-    beta: float = 0.35                  # 0..1 responsiveness dial (speed term)
+    beta: float = 0.60                  # 0..1 responsiveness dial (speed term)
     d_cutoff: float = 1.0
-    deadband_px: float = 0.80           # ignore sub-pixel tremor (bigger = steadier)
+    deadband_px: float = 0.35           # ignore sub-pixel tremor (bigger = steadier)
     reacquire_frames: int = 3           # soft re-acquire instead of a teleport
     lost_after_ms: float = 500.0
 
@@ -70,7 +70,7 @@ class Config:
     # ---- runtime ---------------------------------------------------------
     show_preview: bool = True
     draw_landmarks: bool = True
-    debug: bool = False                 # print detection / clamp statistics every 2s
+    debug: bool = False                # print detection / clamp statistics every 2s
     dry_run: bool = False               # never touch the real pointer (tests/demo)
     failsafe: bool = True
 

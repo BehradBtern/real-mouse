@@ -87,8 +87,8 @@ class Pipeline:
             return intent
 
         if intent.pointer is None:
-            # Frames without a pointer can still carry actions (a safety
-            # release, or scroll notches from momentum).
+            # Scroll and fist-candidate frames have no pointer, but they can
+            # still carry actions (scroll notches, a safety release).
             if intent.actions:
                 self.mouse.apply(
                     Intent(

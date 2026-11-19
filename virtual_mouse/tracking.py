@@ -11,6 +11,7 @@ the next one. Probing up front would add seconds to every start-up.
 
 from __future__ import annotations
 
+import inspect
 import sys
 import time
 from typing import Any
@@ -46,13 +47,7 @@ class HandTracker:
         self.mp_hands = self.mp.solutions.hands
         self.draw_utils = self.mp.solutions.drawing_utils
 
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=config.max_num_hands,
-            model_complexity=config.model_complexity,
-            min_detection_confidence=config.min_detection_confidence,
-            min_tracking_confidence=config.min_tracking_confidence,
-        )
+        self.hands = self._make_hands(config)
 
         self._backend = self.cv2.CAP_DSHOW if sys.platform.startswith("win") else 0
         self.capture: Any | None = None
@@ -72,6 +67,27 @@ class HandTracker:
                 )
 
     # ------------------------------------------------------------------
+    def _make_hands(self, config: Config):
+        """Build the MediaPipe Hands graph with only the keywords this build supports.
+
+        `smooth_landmarks` exists in some mediapipe releases and not others;
+        passing it blindly crashed the app on 0.10.21. Feature-detect instead.
+        """
+        kwargs = {
+            "static_image_mode": False,
+            "max_num_hands": config.max_num_hands,
+            "model_complexity": config.model_complexity,
+            "min_detection_confidence": config.min_detection_confidence,
+            "min_tracking_confidence": config.min_tracking_confidence,
+        }
+        try:
+            supported = inspect.signature(self.mp_hands.Hands).parameters
+        except (TypeError, ValueError):  # pragma: no cover - exotic wrappers
+            supported = {}
+        if config.smooth_landmarks and "smooth_landmarks" in supported:
+            kwargs["smooth_landmarks"] = True
+        return self.mp_hands.Hands(**kwargs)
+
     def open_camera(self, index: int) -> bool:
         """Open `index`, replacing any current device. Never raises."""
         self.release_camera()

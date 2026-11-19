@@ -1,8 +1,8 @@
 """On-camera heads-up display.
 
 The overlay is how you *see* what the engine believes: the active box, the
-current gesture, the pinch value, which camera is live and where the pointer
-actually is. Without it, tuning the feel is guesswork.
+current gesture, the pinch value and where the pointer actually is. Without it,
+tuning the feel is guesswork.
 """
 
 from __future__ import annotations

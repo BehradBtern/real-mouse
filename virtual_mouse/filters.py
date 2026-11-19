@@ -138,12 +138,7 @@ class Hysteresis:
 
 
 class Deadband:
-    """Ignore movements smaller than `threshold` pixels, pass the rest intact.
-
-    Compared against the last *emitted* point, so slow motion accumulates
-    instead of being thrown away. The threshold is adjustable at runtime
-    (the `[` and `]` keys) and clamped to a sane range.
-    """
+    """Ignore movements smaller than `threshold` pixels, pass the rest intact."""
 
     MIN = 0.0
     MAX = 5.0

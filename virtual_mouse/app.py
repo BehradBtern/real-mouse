@@ -3,8 +3,8 @@
     python -m virtual_mouse.app --mode absolute --camera 0
 
 Hotkeys (focus the preview window):
-    q / Esc  quit        c  switch camera      r  recalibrate     m  mirror
-    p        pause       [ ]  deadband         1/2/3  presets
+    q / Esc  quit        r  recalibrate        m  mirror
+    p        pause       +/-  gain             1/2/3  presets
 """
 
 from __future__ import annotations
@@ -21,12 +21,12 @@ from .tracking import HandTracker, TrackerUnavailable
 
 
 PRESETS: dict[str, dict] = {
-    # heavy smoothing: steadier for cheap webcams, slightly laggy on flicks
-    "precise": dict(min_cutoff=0.8, beta=0.25, deadband_px=0.55, relative_gain=1.9),
-    # the default: direct on flicks, calm at rest
-    "balanced": dict(min_cutoff=1.0, beta=0.35, deadband_px=0.4, relative_gain=2.2),
-    # minimal smoothing for a good camera and a steady hand
-    "fast": dict(min_cutoff=2.0, beta=0.7, deadband_px=0.2, relative_gain=2.7),
+    # maximum steadiness: heavier filter, wider deadband, linear mapping
+    "precise": dict(min_cutoff=0.8, beta=0.45, deadband_px=0.50, edge_gamma=1.0),
+    # the default: linear mapping, tight tracking, thin deadband
+    "balanced": dict(min_cutoff=1.0, beta=0.60, deadband_px=0.35, edge_gamma=1.0),
+    # minimal filtering for a good camera and a steady hand
+    "fast": dict(min_cutoff=2.0, beta=1.0, deadband_px=0.15, edge_gamma=1.0),
 }
 
 
@@ -81,8 +81,8 @@ def run(config: Config) -> int:
     fps = 0.0
     last = time.perf_counter()
 
-    # counters for --debug: how often the hand is seen, how often a dropped
-    # frame was covered by coasting, and how often the anchor left the box
+    # counters for --debug: how often the hand is seen, and how often its
+    # anchor falls outside the active box (which is what silently clamps motion)
     frames = 0
     hand_frames = 0
     outside_frames = 0
@@ -91,7 +91,7 @@ def run(config: Config) -> int:
     report_at = time.perf_counter() + 2.0
     stats_line: str | None = None
 
-    print("virtual-mouse running - press q in the preview to quit")
+    print("virtual-mouse running — press q in the preview to quit")
     print(f"  mode={config.mode}  region={config.region}  smoothing={config.min_cutoff}/{config.beta}")
 
     try:
@@ -161,7 +161,7 @@ def run(config: Config) -> int:
                     notice=tracker.active_notice(),
                     stats=stats_line,
                 )
-                tracker.cv2.imshow("Real Mouse - virtual pointer", frame)
+                tracker.cv2.imshow("Real Mouse — virtual pointer", frame)
 
                 key = tracker.cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), 27):
@@ -214,7 +214,7 @@ def run(config: Config) -> int:
         tracker.close()
 
     print(
-        f"stopped - moves={pipeline.mouse.moves} clicks={pipeline.mouse.clicks} "
+        f"stopped — moves={pipeline.mouse.moves} clicks={pipeline.mouse.clicks} "
         f"scroll={pipeline.mouse.scroll_notches}"
     )
     return 0

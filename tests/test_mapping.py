@@ -80,8 +80,8 @@ class TestRelativeMapping(unittest.TestCase):
     def test_stays_on_screen(self) -> None:
         m = mapper(mode="relative", relative_gain=6.0)
         m.map_relative(0.5, 0.5)
-        for i in range(50):
-            x, y = m.map_relative(0.1 if i % 2 else 0.9, 0.1 if i % 2 else 0.9)
+        for _ in range(50):
+            x, y = m.map_relative(0.9, 0.1)
         self.assertLessEqual(x, 1919.0)
         self.assertGreaterEqual(y, 0.0)
 

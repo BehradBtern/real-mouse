@@ -57,10 +57,8 @@ def make_hand(
 
 
 def rotate(hand: HandFrame, degrees: float, origin: tuple[float, float] | None = None) -> HandFrame:
-    """Rotate every landmark around the wrist.
-
-    Used to prove the fist test is orientation-independent.
-    """
+    """Rotate every landmark around the wrist. Used to prove the fist test is
+    orientation-independent."""
     ox, oy = origin if origin is not None else hand.points[0]
     angle = math.radians(degrees)
     cos_a, sin_a = math.cos(angle), math.sin(angle)
