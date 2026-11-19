@@ -87,6 +87,9 @@ def run(config: Config) -> int:
     hand_frames = 0
     outside_frames = 0
     coast_frames = 0
+    fist_frames = 0
+    curl_sum = 0.0
+    scroll_at_report = 0
     coaster = HandCoaster(config.coast_ms)
     report_at = time.perf_counter() + 2.0
     stats_line: str | None = None
@@ -109,6 +112,9 @@ def run(config: Config) -> int:
             frames += 1
             if hand is not None:
                 hand_frames += 1
+                if hand.is_fist():
+                    fist_frames += 1
+                curl_sum += sum(hand.curl_profile()) / 4.0
                 u, v = hand.anchor()
                 if (
                     u < config.region_left
@@ -136,15 +142,21 @@ def run(config: Config) -> int:
                 seen = 100.0 * hand_frames / max(1, frames)
                 outside = 100.0 * outside_frames / max(1, hand_frames)
                 coasted_pct = 100.0 * coast_frames / max(1, frames)
+                fist_pct = 100.0 * fist_frames / max(1, frames)
+                curl = curl_sum / max(1, hand_frames)
+                scrolls = pipeline.mouse.scroll_notches - scroll_at_report
+                scroll_at_report = pipeline.mouse.scroll_notches
                 stats_line = (
-                    f"hand {seen:3.0f}%   coast {coasted_pct:3.0f}%   "
-                    f"out {outside:3.0f}%   db {pipeline.deadband.threshold:.2f}"
+                    f"hand {seen:3.0f}%   fist {fist_pct:3.0f}%   curl {curl:4.2f}   "
+                    f"scroll {scrolls:3d}   db {pipeline.deadband.threshold:.2f}"
                 )
                 print(
-                    f"stats hand={seen:5.1f}% coast={coasted_pct:5.1f}% outside_box={outside:5.1f}% "
+                    f"stats hand={seen:5.1f}% fist={fist_pct:5.1f}% curl={curl:4.2f} "
+                    f"scroll={scrolls:3d} coast={coasted_pct:5.1f}% outside_box={outside:5.1f}% "
                     f"fps={fps:5.1f} deadband={pipeline.deadband.threshold:.2f} pos={position}"
                 )
-                frames = hand_frames = outside_frames = coast_frames = 0
+                frames = hand_frames = outside_frames = coast_frames = fist_frames = 0
+                curl_sum = 0.0
                 report_at = time.perf_counter() + 2.0
 
             if config.show_preview:

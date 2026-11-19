@@ -99,17 +99,48 @@ class TestScroll(unittest.TestCase):
             open_hand = rotate(make_hand(pinch=1.0), degrees)
             self.assertFalse(open_hand.is_fist(), f"open hand read as a fist at {degrees} degrees")
 
-    def test_wrist_travel_produces_notches(self) -> None:
+    def test_one_hidden_fingertip_still_counts_as_a_fist(self) -> None:
+        # MediaPipe loses a curled tip behind the palm; it lands partially curled
+        hand = make_hand(fist=True)
+        points = list(hand.points)
+        points[20] = (points[0][0] + 0.35, points[0][1] - 0.35)  # pinky drifts out (ratio ~1.8)
+        from virtual_mouse.gestures import HandFrame
+
+        self.assertTrue(HandFrame(points=points).is_fist())
+
+    def test_a_pointing_hand_is_not_a_fist(self) -> None:
+        hand = make_hand(fist=True)
+        points = list(hand.points)
+        points[8] = (points[0][0] + 0.62, points[0][1] - 0.30)  # index extended
+        from virtual_mouse.gestures import HandFrame
+
+        self.assertFalse(HandFrame(points=points).is_fist())
+
+    def test_holding_a_still_fist_scrolls_nothing(self) -> None:
         e = engine()
-        actions, _ = run(e, [make_hand(fist=True)] * 4)
-        now = 4 * FRAME_MS
-        for i in range(12):
+        actions, _ = run(e, [make_hand(fist=True)] * 40)
+        self.assertEqual([a for a in actions if a[0] == "scroll"], [])
+        self.assertTrue(e.scrolling)
+
+    def test_raising_the_fist_scrolls_up(self) -> None:
+        e = engine()
+        actions, now = run(e, [make_hand(fist=True, y=0.5)] * 4)
+        for _ in range(30):
             now += FRAME_MS
-            intent = e.update(make_hand(fist=True, y=0.5 - i * 0.02), now)
-            actions.extend(intent.actions)
+            actions.extend(e.update(make_hand(fist=True, y=0.28), now).actions)
         scrolls = [a for a in actions if a[0] == "scroll"]
         self.assertTrue(scrolls, "expected scroll actions")
-        self.assertTrue(all(value > 0 for _, value in scrolls), "hand up must scroll up")
+        self.assertTrue(all(value > 0 for _, value in scrolls), "fist up must scroll up")
+
+    def test_lowering_the_fist_scrolls_down(self) -> None:
+        e = engine()
+        actions, now = run(e, [make_hand(fist=True, y=0.5)] * 4)
+        for _ in range(30):
+            now += FRAME_MS
+            actions.extend(e.update(make_hand(fist=True, y=0.72), now).actions)
+        scrolls = [a for a in actions if a[0] == "scroll"]
+        self.assertTrue(scrolls, "expected scroll actions")
+        self.assertTrue(all(value < 0 for _, value in scrolls), "fist down must scroll down")
 
     def test_scroll_mode_keeps_the_pointer(self) -> None:
         e = engine()

@@ -39,7 +39,8 @@ RING_TIP = 16
 PINKY_PIP = 18
 PINKY_TIP = 20
 
-FIST_RATIO = 1.30  # fingertip-to-wrist distance / hand scale below which a finger is curled
+FIST_RATIO = 1.55  # fingertip-to-wrist distance / hand scale below which a finger is curled
+FIST_LOOSE = 1.95  # a fourth fingertip this close is "partially curled": MediaPipe lost it behind the palm
 
 
 class Gesture(str, Enum):
@@ -79,15 +80,30 @@ class HandFrame:
         """fingertip -> wrist distance, in hand-size units. Small means curled."""
         return dist(self.pt(tip), self.pt(WRIST)) / self.scale()
 
+    def curl_profile(self) -> list[float]:
+        return [self.curled(tip) for tip in (INDEX_TIP, MIDDLE_TIP, RING_TIP, PINKY_TIP)]
+
     def is_fist(self) -> bool:
-        """Rotation-invariant fist: all four fingertips close to the wrist.
+        """Rotation-invariant fist: the fingertips are pulled in towards the wrist.
 
         Comparing tip.y with pip.y only works for an upright hand; rotate your
         wrist and the same fist reads as "open". Distance to the wrist does not
-        care about orientation, and it degrades gracefully when MediaPipe loses
-        a curled fingertip behind the palm.
+        care about orientation.
+
+        A real fist often hides one fingertip behind the palm, and MediaPipe then
+        places it somewhere outside the silhouette. Requiring all four strictly
+        curled meant the gesture never fired on real hands, so one outlying
+        fingertip is tolerated as long as it is still *partially* curled — an
+        extended index finger (a pointing hand) stays well above the loose bound.
         """
-        return all(self.curled(tip) < FIST_RATIO for tip in (INDEX_TIP, MIDDLE_TIP, RING_TIP, PINKY_TIP))
+        curls = self.curl_profile()
+        tight = sum(1 for c in curls if c < FIST_RATIO)
+        if tight >= 4:
+            return True
+        if tight >= 3:
+            loose = [c for c in curls if c >= FIST_RATIO]
+            return len(loose) == 1 and loose[0] < FIST_LOOSE
+        return False
 
     def pointer(self) -> tuple[float, float]:
         return self.pt(INDEX_TIP)
@@ -176,6 +192,8 @@ class GestureEngine:
         self.open_frames = 0
         self.scrolling = False
         self.last_wrist_y: float | None = None
+        self.scroll_neutral_y: float | None = None
+        self.last_scroll_ms: float | None = None
         self.scroll_pending = 0.0
         self.scroll_velocity = 0.0
 
@@ -193,6 +211,8 @@ class GestureEngine:
         self.open_frames = 0
         self.scrolling = False
         self.last_wrist_y = None
+        self.scroll_neutral_y = None
+        self.last_scroll_ms = None
         self.scroll_pending = 0.0
         self.scroll_velocity = 0.0
         self.left_stable = 0
@@ -226,7 +246,7 @@ class GestureEngine:
             # looks tidy, but then the cursor teleports across the screen the
             # moment the fist opens.
             intent.pointer = hand.anchor()
-            self._scroll_step(hand, intent)
+            self._scroll_step(hand, intent, now_ms)
             return intent
 
         # A closing hand is a scroll candidate, never a click: without this the
@@ -315,31 +335,49 @@ class GestureEngine:
 
         if not self.scrolling and self.fist_frames >= self.config.fist_enter_frames:
             self.scrolling = True
-            self.last_wrist_y = None
+            self.scroll_neutral_y = None
+            self.last_scroll_ms = None
             self.scroll_pending = 0.0
 
         if self.scrolling and self.open_frames >= self.config.fist_exit_frames:
             self.scrolling = False
-            self.last_wrist_y = None
+            self.scroll_neutral_y = None
+            self.last_scroll_ms = None
             self.scroll_velocity = self.scroll_pending * 0.5
             self.scroll_pending = 0.0
             # leaving scroll must not fall straight into a click
             self.guard_until = max(self.guard_until, now_ms + self.config.click_guard_ms)
 
-    def _scroll_step(self, hand: HandFrame, intent: Intent) -> None:
+    def _scroll_step(self, hand: HandFrame, intent: Intent, now_ms: float) -> None:
+        """Tilt-to-scroll.
+
+        A held fist turns the hand into a scroll joystick: the height of the
+        wrist relative to where the fist was formed sets direction and speed.
+        This replaced a delta-based version that produced nothing at all on a
+        real hand — the log showed `fist 31.7%` with `scroll 0`, because the
+        hand was held still rather than swept.
+        """
         wrist_y = hand.pt(WRIST)[1]
-        if self.last_wrist_y is None:
-            self.last_wrist_y = wrist_y
+
+        if self.scroll_neutral_y is None:
+            self.scroll_neutral_y = wrist_y
+            self.last_scroll_ms = now_ms
             return
 
-        dy = wrist_y - self.last_wrist_y
-        self.last_wrist_y = wrist_y
+        dt = 0.0 if self.last_scroll_ms is None else (now_ms - self.last_scroll_ms) / 1000.0
+        self.last_scroll_ms = now_ms
+        dt = max(0.0, min(0.10, dt))
 
-        if abs(dy) < self.config.scroll_deadband:
+        # raising the hand (smaller y) is positive deflection -> scroll up
+        offset = self.scroll_neutral_y - wrist_y
+        if abs(offset) <= self.config.scroll_deadband:
+            self.scroll_pending *= 0.8
             return
 
-        # Moving the hand up (smaller y) scrolls up: positive pyautogui notches.
-        self.scroll_pending += -dy * self.config.scroll_gain
+        reach = max(self.config.scroll_full_deflection, 1e-3)
+        normalised = max(-1.0, min(1.0, offset / reach))
+        self.scroll_pending += normalised * self.config.scroll_rate * dt
+
         steps = int(self.scroll_pending)
         if steps == 0:
             return

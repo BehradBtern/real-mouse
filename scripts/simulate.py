@@ -39,9 +39,9 @@ def hand(pinch: float = 1.0, fist: bool = False, x: float = 0.5, y: float = 0.5,
     points = [(x, y)] * 21
     points[0] = (x, y + SCALE)          # wrist
     points[9] = (x, y)                  # middle knuckle -> hand scale anchor
-    points[4] = (x, y)                  # thumb tip
-    points[8] = (x + pinch * SCALE, y)  # index tip
-    points[12] = (x + middle * SCALE, y + 0.015)
+    points[4] = (x, y - 0.12)           # thumb tip
+    points[8] = (x + pinch * SCALE, y - 0.12)     # index tip
+    points[12] = (x + middle * SCALE, y - 0.105)
 
     if fist:
         for tip_idx, pip_idx, offset in ((8, 6, 0.02), (12, 10, 0.03), (16, 14, 0.04), (20, 18, 0.05)):
@@ -99,12 +99,14 @@ def build_session(seed: int = 11):
         frames.append((hand(pinch=0.18, x=pos[0], y=pos[1]), "longpinch"))
     frames += [(hand(pinch=1.0, x=pos[0], y=pos[1]), "move")] * 8
 
-    # 4. fist scroll: the hand travels up, then opens
+    # 4. fist scroll: raise the fist, hold it high (tilt-to-scroll keeps going), then open
     for i in range(4):
         pos[1] = 0.6 - i * 0.004
         frames.append((hand(fist=True, x=pos[0], y=pos[1]), "scroll"))
     for i in range(30):
         pos[1] = 0.584 - i * 0.012
+        frames.append((hand(fist=True, x=pos[0], y=pos[1]), "scroll"))
+    for _ in range(24):
         frames.append((hand(fist=True, x=pos[0], y=pos[1]), "scroll"))
     frames += [(hand(fist=False, x=pos[0], y=pos[1]), "move")] * 8
 

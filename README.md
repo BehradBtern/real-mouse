@@ -49,7 +49,7 @@ python scripts/run.py --dry-run
 | Move your hand inside the box | pointer follows |
 | Index + thumb pinch | left click (one pinch = one click, no drag mode) |
 | Middle + thumb pinch, index extended | right click (350ms cooldown) |
-| Closed fist + move up/down | scroll with momentum |
+| Closed fist + raise/lower | scroll joystick: hold the fist high to scroll up, low to scroll down, neutral to stop |
 | Open your hand / leave the frame | nothing is held, nothing sticks |
 
 Hotkeys in the preview: `q` quit · `c` switch camera · `r` recalibrate · `m` mirror · `p` pause ·
@@ -91,7 +91,9 @@ Everything lives in `virtual_mouse/config.py` and can be overridden from the CLI
 | `right_pinch_press` / `right_pinch_release` | 0.45 / 0.65 | middle-finger pinch for the right button |
 | `stable_frames` | 1 | frames a pinch must hold before it counts |
 | `click_guard_ms` | 150 | ignore a second click right after one fires |
-| `scroll_gain` | 60.0 | notches per frame-height of wrist travel |
+| `scroll_rate` | 9.0 | notches per second at full fist deflection |
+| `scroll_full_deflection` | 0.12 | wrist offset from neutral that reaches full speed |
+| `scroll_deadband` | 0.030 | wrist offset ignored around neutral |
 | `scroll_momentum` | 0.86 | wheel inertia after the fist opens |
 | `relative_gain` | 2.2 | relative-mode sensitivity |
 
@@ -102,7 +104,7 @@ The presets (`precise`, `balanced`, `fast`) are just bundles of these numbers.
 No camera needed for either of these.
 
 ```bash
-python scripts/test.py          # 67 unit + pipeline tests, stdlib only
+python scripts/test.py          # 71 unit + pipeline tests, stdlib only
 python scripts/simulate.py --json docs/simulation.json --svg docs/simulation-path.svg
 ```
 
@@ -111,26 +113,26 @@ The simulator runs the *production* pipeline over a scripted hand with camera-li
 
 ```json
 {
-  "frames": 310,
-  "duration_s": 5.17,
+  "frames": 334,
+  "duration_s": 5.57,
   "moves": 232,
   "left_clicks": 4,
   "held_buttons": 0,
   "right_clicks": 1,
-  "scroll_notches": 21,
+  "scroll_notches": 7,
   "raw_jitter_px": 17.782,
-  "cursor_jitter_px": 12.226,
-  "jitter_reduction_pct": 31.2,
-  "max_frame_jump_px": 198.1,
-  "path_length_px": 5826.0
+  "cursor_jitter_px": 12.295,
+  "jitter_reduction_pct": 30.9,
+  "max_frame_jump_px": 160.1,
+  "path_length_px": 4731.0
 }
 ```
 
 - 3 deliberate clicks + one deliberately long pinch → **4** left clicks and **0** held
   buttons: a pinch can never become a drag.
 - 1 middle pinch → exactly **1** right click.
-- 1 fist sweep → **21** scroll notches, no clicks.
-- Jitter (mean absolute second difference of the cursor path) drops **31.2%**. The default preset
+- 1 fist held high for half a second → **7** scroll notches, no clicks.
+- Jitter (mean absolute second difference of the cursor path) drops **30.9%**. The default preset
   deliberately trades smoothing for response; preset `1` restores the smoother curve.
 - Largest single-frame pointer step: 160.1px - the fastest scripted phase transition, not a
   filter artefact. `docs/simulation-path.svg` plots raw vs filtered.
@@ -143,7 +145,7 @@ test_fist_enters_scroll_and_suppresses_clicks ... ok
 test_hand_loss_never_leaves_the_button_down   ... ok
 ```
 
-67 tests in total; `scripts/test.py` exits non-zero on the first failure.
+71 tests in total; `scripts/test.py` exits non-zero on the first failure.
 
 ## Layout
 
@@ -160,7 +162,7 @@ virtual_mouse/
   hud.py        on-camera overlay
   app.py        loop, CLI, hotkeys
 scripts/        run.py · test.py · simulate.py
-tests/          67 tests, no hardware required
+tests/          71 tests, no hardware required
 docs/           simulation.json (add --svg to generate the path plot)
 ```
 

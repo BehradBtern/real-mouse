@@ -56,8 +56,12 @@ class Config:
     # ---- scroll ----------------------------------------------------------
     fist_enter_frames: int = 2
     fist_exit_frames: int = 2
-    scroll_deadband: float = 0.003      # normalized wrist movement ignored
-    scroll_gain: float = 60.0           # notches per frame-height of wrist travel
+    # Tilt-to-scroll: once the fist is held, its height relative to where the
+    # fist was formed controls direction and speed. Holding still scrolls
+    # nothing; raising the hand scrolls up; lowering scrolls down.
+    scroll_deadband: float = 0.030      # normalised wrist offset ignored
+    scroll_full_deflection: float = 0.12  # offset that reaches full speed
+    scroll_rate: float = 9.0            # notches per second at full deflection
     scroll_momentum: float = 0.86
     scroll_max_step: int = 4
 

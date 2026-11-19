@@ -30,9 +30,9 @@ def make_hand(
     wrist = (x, y + SCALE)
     points[0] = wrist
     points[9] = (x, y)                      # middle knuckle -> hand scale anchor
-    points[4] = (x, y)                      # thumb tip
-    points[8] = (x + pinch * SCALE, y)      # index tip
-    points[12] = (x + middle_pinch * SCALE, y + 0.015)
+    points[4] = (x, y - 0.12)               # thumb tip
+    points[8] = (x + pinch * SCALE, y - 0.12)   # index tip
+    points[12] = (x + middle_pinch * SCALE, y - 0.105)
 
     if fist:
         # every fingertip curled back towards the wrist
@@ -50,8 +50,8 @@ def make_hand(
             points[pip_idx] = (x + 0.02, y - 0.05)
             points[tip_idx] = (x + 0.02, y - 0.32)
         # keep the deliberately positioned index/middle tips for pinch maths
-        points[8] = (x + pinch * SCALE, y)
-        points[12] = (x + middle_pinch * SCALE, y + 0.015)
+        points[8] = (x + pinch * SCALE, y - 0.12)
+        points[12] = (x + middle_pinch * SCALE, y - 0.105)
 
     return HandFrame(points=points)
 

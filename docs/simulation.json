@@ -1,20 +1,20 @@
 {
-  "frames": 310,
-  "duration_s": 5.17,
-  "moves": 228,
+  "frames": 334,
+  "duration_s": 5.57,
+  "moves": 232,
   "left_clicks": 4,
   "held_buttons": 0,
   "right_clicks": 1,
-  "scroll_notches": 21,
-  "scroll_events": 21,
+  "scroll_notches": 7,
+  "scroll_events": 7,
   "raw_jitter_px": 17.782,
-  "cursor_jitter_px": 12.226,
-  "jitter_reduction_pct": 31.2,
+  "cursor_jitter_px": 12.295,
+  "jitter_reduction_pct": 30.9,
   "max_frame_jump_px": 160.1,
-  "path_length_px": 4728.0,
+  "path_length_px": 4731.0,
   "final_position": [
     1368,
-    183
+    182
   ],
   "seed": 11
 }
